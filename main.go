@@ -3,7 +3,9 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -46,10 +48,33 @@ func main() {
 			cStatus := container.Status
 
 			if strings.Contains(cStatus, "unhealthy") {
-				fmt.Printf("%s - %s\n", cName, container.Status)
+				fmt.Printf("%s - %s\n", cName, cStatus)
+				t := time.Now()
+				msg := fmt.Sprintf("Container '%s' status is '%s', TIME: %s", cName, cStatus, t.Format("2006-01-02 15:04:05"))
+				sendToNtfy(msg)
 			}
 		}
 		time.Sleep(time.Second * time.Duration(interval))
 	}
+}
 
+func sendToNtfy(message string) {
+	payload := strings.NewReader(message)
+
+	client := &http.Client{}
+	req, err := http.NewRequest("POST", os.Getenv("NTFY_URL"), payload)
+	PanicLogging(err)
+
+	req.Header.Add("Content-Type", "text/plain")
+	req.Header.Set("Title", os.Getenv("NTFY_TITLE"))
+	req.Header.Set("Priority", os.Getenv("NTFY_PRIORITY"))
+	req.Header.Set("Tags", os.Getenv("NTFY_TAGS"))
+	res, err := client.Do(req)
+	PanicLogging(err)
+	defer res.Body.Close()
+
+	body, err := io.ReadAll(res.Body)
+	PanicLogging(err)
+
+	fmt.Println(string(body))
 }
