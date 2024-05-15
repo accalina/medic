@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
 	containertypes "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
+	"github.com/joho/godotenv"
 )
 
 func PanicLogging(err error) {
@@ -21,11 +23,19 @@ func PanicLogging(err error) {
 
 func main() {
 	ctx := context.Background()
+
+	err := godotenv.Load()
+	PanicLogging(err)
+
+	interval, err := strconv.Atoi(os.Getenv("MONITOR_INTERVAL_SEC"))
+	PanicLogging(err)
+
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	PanicLogging(err)
 	defer cli.Close()
 
 	fmt.Println(" [*] Medic is on standby and transmitting")
+	fmt.Printf(" [*] Interval Set: %d Second(s)\n", interval)
 
 	for {
 		containers, err := cli.ContainerList(ctx, containertypes.ListOptions{})
@@ -39,7 +49,7 @@ func main() {
 				fmt.Printf("%s - %s\n", cName, container.Status)
 			}
 		}
-		time.Sleep(time.Second * 5)
+		time.Sleep(time.Second * time.Duration(interval))
 	}
 
 }
